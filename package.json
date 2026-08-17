@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.3",
+  "version": "0.1.0-rc.4",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
@@ -12,7 +12,9 @@
     },
     "./client": {
       "default": "./lib/client.js"
-    }
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
   },
   "dsh": {
     "client": {
