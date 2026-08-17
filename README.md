@@ -27,6 +27,10 @@ dsh plugin --profile web add dsh-chat@next
 ## Product principles
 
 - A local chat and a remote handoff look like one continuous conversation.
+- A room has one authoritative host. Remote nodes store a room link (ticket
+  and cursor), not a second room or message-history replica.
+- Public messages without `@` belong only to the room view; `@session-id`
+  directs delivery and `@all` is the explicit agent broadcast.
 - Without Weave, a room can contain local sessions only. When Weave is
   installed, the same room can include explicitly approved remote nodes.
 - Every remote action exposes its target node, requested capability, and approval state.
@@ -41,10 +45,9 @@ release” actionable without asking the operator for a session id. A send with
 no mentions broadcasts; `mentions: ["session-id"]` is the machine-readable
 form of `@session-id`, and `mentions: ["all"]` broadcasts explicitly.
 
-Same-host membership is immediate. Cross-host membership is the next Weave
-layer: it must establish an explicit trusted peer and synchronize an accepted
-room invitation, rather than silently adding a remote session from a text
-message.
+Same-host membership is immediate. Cross-host membership requires an explicit
+trusted peer and creates a capability-bearing room link, rather than copying
+room state from a text message.
 
 ## Roadmap
 
