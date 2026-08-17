@@ -14,9 +14,10 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.2` adds the durable room service: create rooms, add local or Weave
-members, record messages, and fan each message out through the appropriate
-transport. The interactive `conversation.view` Web panel is the next increment.
+`0.1.0-rc.3` adds the DSH Web `Group Chat` tab. It creates durable rooms, adds
+local session members, reads the room timeline, and sends through Bridge. When
+Weave is installed, the same room service can also deliver to its explicit
+remote members.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next
@@ -33,7 +34,7 @@ dsh plugin --profile web add dsh-chat@next
 
 ## Roadmap
 
-- [ ] `conversation.view` Web panel for local rooms
+- [x] `conversation.view` Web panel for local rooms
 - [ ] Node and task handoff timeline
 - [ ] Remote approval and result cards
 - [ ] Session export, replay, and audit view

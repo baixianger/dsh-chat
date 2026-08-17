@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
@@ -9,9 +9,19 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
     }
   },
   "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
@@ -30,5 +40,12 @@
   },
   "homepage": "https://github.com/baixianger/dsh-chat#readme",
   "engines": { "node": ">=22" },
-  "publishConfig": { "access": "public", "tag": "next" }
+  "publishConfig": { "access": "public", "tag": "next" },
+  "dependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.7"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
 }
