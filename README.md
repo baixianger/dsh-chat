@@ -14,9 +14,9 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.1` is the DSH-plugin foundation: it has a stable plugin identity and
-installation path. The interactive `conversation.view` Web panel is the next
-implementation increment; this release does not claim to provide it yet.
+`0.1.0-rc.2` adds the durable room service: create rooms, add local or Weave
+members, record messages, and fan each message out through the appropriate
+transport. The interactive `conversation.view` Web panel is the next increment.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next
