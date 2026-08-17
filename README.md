@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.5` adds the DSH Web `Group Chat` tab. It creates durable rooms, adds
+`0.1.0-rc.8` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
 local session members, reads the room timeline, and sends through Bridge. The
 panel talks only to the local DSH host through a trusted RPC channel; it does
 not expose a standalone public chat server. When Weave is installed, the same
@@ -32,6 +32,19 @@ dsh plugin --profile web add dsh-chat@next
 - Every remote action exposes its target node, requested capability, and approval state.
 - Network loss is visible; no hidden retries that make work appear completed.
 - Credentials and private workspace files stay with their owning DSH node.
+
+## Agent commands
+
+Agents receive `chat_create`, `chat_join`, `chat_invite`, and `chat_send`. This
+makes plain requests such as “create group chat release” or “join group chat
+release” actionable without asking the operator for a session id. A send with
+no mentions broadcasts; `mentions: ["session-id"]` is the machine-readable
+form of `@session-id`, and `mentions: ["all"]` broadcasts explicitly.
+
+Same-host membership is immediate. Cross-host membership is the next Weave
+layer: it must establish an explicit trusted peer and synchronize an accepted
+room invitation, rather than silently adding a remote session from a text
+message.
 
 ## Roadmap
 

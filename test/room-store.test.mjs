@@ -23,3 +23,15 @@ test("adding a remote room member explicitly trusts its Weave ticket", async () 
   await service.addMember(room.id, { kind: "weave", sessionId: "remote-session", ticket: "ticket-data" });
   assert.deepEqual(trusted, ["ticket-data"]);
 });
+
+test("room references resolve by name and mentions target only the named members", async () => {
+  const calls = [];
+  const ctx = { dshBridge: { deliverExternal(...args) { calls.push(args); } } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Release", members: [{ kind: "session", sessionId: "alice" }, { kind: "session", sessionId: "bob" }, { kind: "session", sessionId: "carol" }] });
+  assert.equal((await service.resolveRoom("Release")).id, room.id);
+  const message = await service.send({ roomId: room.id, author: "alice", text: "@bob please review", mentions: ["bob"] });
+  assert.deepEqual(message.mentions, ["bob"]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], "bob");
+});
