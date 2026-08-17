@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.6",
+  "version": "0.1.0-rc.7",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
