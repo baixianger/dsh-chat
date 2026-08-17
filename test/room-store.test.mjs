@@ -14,3 +14,12 @@ test("room messages fan out through Bridge and persist", async () => {
   assert.equal(calls.length, 1); assert.equal(calls[0][1], "bob"); assert.match(calls[0][2], /ship it/);
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
 });
+
+test("adding a remote room member explicitly trusts its Weave ticket", async () => {
+  const trusted = [];
+  const ctx = { get(name) { return name === "dshWeave" ? { trust(ticket) { trusted.push(ticket); } } : undefined; } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Remote" });
+  await service.addMember(room.id, { kind: "weave", sessionId: "remote-session", ticket: "ticket-data" });
+  assert.deepEqual(trusted, ["ticket-data"]);
+});
