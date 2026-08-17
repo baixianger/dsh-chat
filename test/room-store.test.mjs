@@ -35,3 +35,29 @@ test("room references resolve by name and mentions target only the named members
   assert.equal(calls.length, 1);
   assert.equal(calls[0][1], "bob");
 });
+
+test("authoritative host exposes cursor reads and only delivers explicit remote mentions", async () => {
+  const listeners = { host: new Set(), guest: new Set() }; const deliveries = [];
+  const makeWeave = (side) => ({
+    async trust() {}, async ticket() { return `${side}-ticket`; },
+    subscribe(listener) { listeners[side].add(listener); return () => listeners[side].delete(listener); },
+    async send(frame) {
+      const target = frame.ticket === "host-ticket" ? "host" : "guest"; let result;
+      for (const listener of listeners[target]) { const outcome = await listener({ ...frame, peerId: side, receivedAt: Date.now() }); if (outcome?.result !== undefined) result = outcome.result; }
+      return { delivered: true, result };
+    }
+  });
+  const host = new DshChatService({ dshWeave: makeWeave("host"), dshBridge: { deliverExternal() {} } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "host.json") });
+  const guest = new DshChatService({ dshWeave: makeWeave("guest"), dshBridge: { deliverExternal(...args) { deliveries.push(args); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "guest.json") });
+  host.attachWeave(); guest.attachWeave();
+  const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session" }] });
+  await host.addMember(room.id, { kind: "weave", sessionId: "guest-session", ticket: "guest-ticket" });
+  const link = await guest.resolveRoom(room.id); assert.equal(link.hostTicket, "host-ticket");
+  await host.send({ roomId: room.id, author: "host-session", text: "visible to humans" });
+  assert.equal((await guest.messages(room.id))[0].text, "visible to humans");
+  assert.equal(deliveries.length, 0);
+  await host.send({ roomId: room.id, author: "host-session", text: "please inspect", mentions: ["guest-session"] });
+  assert.equal(deliveries.length, 1); assert.equal(deliveries[0][1], "guest-session");
+  await guest.send({ roomId: room.id, author: "guest-session", text: "acknowledged" });
+  assert.equal((await host.messages(room.id)).at(-1).text, "acknowledged");
+});
