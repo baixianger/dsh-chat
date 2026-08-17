@@ -12,8 +12,6 @@ export declare class DshChatService {
   messages(roomId: string, limit?: number): Promise<DshChatMessage[]>;
   createRoom(request: { name: string; members?: DshChatMember[] }): Promise<unknown>;
   addMember(roomId: string, member: DshChatMember): Promise<DshChatMember>;
-  resolveRoom(reference: string): Promise<unknown>;
-  attachWeave(): void;
-  send(request: { roomId: string; author: string; text: string; mentions?: string[] }): Promise<DshChatMessage>;
+  send(request: { roomId: string; author: string; text: string }): Promise<DshChatMessage>;
 }
 export declare function apply(ctx: unknown, config?: { path?: string }): void;
