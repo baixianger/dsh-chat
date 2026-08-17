@@ -14,10 +14,11 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.3` adds the DSH Web `Group Chat` tab. It creates durable rooms, adds
-local session members, reads the room timeline, and sends through Bridge. When
-Weave is installed, the same room service can also deliver to its explicit
-remote members.
+`0.1.0-rc.5` adds the DSH Web `Group Chat` tab. It creates durable rooms, adds
+local session members, reads the room timeline, and sends through Bridge. The
+panel talks only to the local DSH host through a trusted RPC channel; it does
+not expose a standalone public chat server. When Weave is installed, the same
+room service can also deliver to its explicit remote members.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next
