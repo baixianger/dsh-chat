@@ -33,6 +33,20 @@ test("session aliases are presentation metadata while delivery uses stable ids",
   assert.equal(calls[0][1], "session-b2");
 });
 
+test("legacy members expose a live session title without changing their stable id", async () => {
+  const session = { id: "session-old" };
+  const ctx = {
+    sessions: { get(id) { return id === session.id ? session : undefined; } },
+    sessionTitle: { get(value) { return value === session ? { title: "Recovered alias" } : undefined; } }
+  };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-title-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Legacy", members: [{ kind: "session", sessionId: session.id }] });
+  const listed = await service.listRooms();
+  assert.equal(listed[0].members[0].sessionId, session.id);
+  assert.equal(listed[0].members[0].alias, "Recovered alias");
+  assert.equal(room.members[0].sessionId, session.id);
+});
+
 test("rooms materialize as visible titled sessions in the Chatrooms workspace", async () => {
   const root = await mkdtemp(join(tmpdir(), "dsh-chat-sessions-"));
   const sessions = new Map();
