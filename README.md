@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.11` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
+`0.1.0-rc.12` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
 local session members, reads the room timeline, and sends through Bridge. The
 panel talks only to the local DSH host through a trusted RPC channel; it does
 not expose a standalone public chat server. When Weave is installed, the same
