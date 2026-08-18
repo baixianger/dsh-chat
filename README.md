@@ -14,13 +14,15 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.13` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.14` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
-selector-routed composer sends room messages. There is no separate Group Chat
-view tab. Existing rooms are assigned room sessions on startup. When Weave is
-installed, the same room service can also deliver to its explicit remote
-members.
+selector-routed composer sends room messages. The room timeline uses member
+avatars and keeps membership and Weave configuration in a dedicated settings
+drawer; its composer follows the native session input layout. There is no
+separate Group Chat view tab. Existing rooms are assigned room sessions on
+startup. When Weave is installed, the same room service can also deliver to
+its explicit remote members.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next
