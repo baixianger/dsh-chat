@@ -68,4 +68,6 @@ test("composer delivers only structured mentions selected from the member list",
   assert.match(source, /const mentions = \[\.\.\.new Set\(selected\)\]/);
   assert.doesNotMatch(source, /draft\.matchAll/);
   assert.doesNotMatch(source, /lowerDraft\.includes/);
+  assert.match(source, /Mention \$\{label\}, \$\{stateLabel\(state\)\}/);
+  assert.match(source, /background: stateColor\(state\)/);
 });
