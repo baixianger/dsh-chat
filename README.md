@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.15` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.16` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
@@ -26,7 +26,9 @@ are excluded. Iroh identity and pairing remain owned by dsh-weave's Settings
 page. Its composer follows the native session input layout. There is no
 separate Group Chat view tab. Existing rooms are assigned room sessions on
 startup. When Weave is installed, the same room service can also deliver to
-its explicit remote members.
+its explicit remote members. The Host → Workspace → Session picker follows
+the same token-based field, select, focus, and disabled-state contract as DSH
+Settings without depending on Settings' private CSS-module class names.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next

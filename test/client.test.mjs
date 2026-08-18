@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("client renders rooms in native Chat and takes over only their composer", async () => {
@@ -36,4 +37,14 @@ test("client renders rooms in native Chat and takes over only their composer", a
   const node = definition.buildViewNode({ key: "dsh-chat-room:room-1", id: "room-1", start: match, state });
   assert.equal(node.kind, "dsh-chat-room");
   assert.equal(node.data.name, "Release");
+});
+
+test("room controls follow the DSH Settings token contract", async () => {
+  const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
+  assert.match(source, /className: "dshChatControl"/);
+  assert.match(source, /--dsw-alias-border-l2/);
+  assert.match(source, /--dsw-alias-label-primary/);
+  assert.match(source, /--dsw-alias-state-business-primary/);
+  assert.match(source, /color-mix\(in srgb/);
+  assert.doesNotMatch(source, /zGbnIq_|qSYn7G_|At1oFq_/);
 });
