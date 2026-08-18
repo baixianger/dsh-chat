@@ -47,6 +47,19 @@ test("legacy members expose a live session title without changing their stable i
   assert.equal(room.members[0].sessionId, session.id);
 });
 
+test("Weave backfills aliases for existing remote members without blocking room reads", async () => {
+  const service = new DshChatService({ dshWeave: { async remoteSessions() { return [{ hostId: "peer", hostName: "studio-mini", workspaces: [{ id: "work", title: "Release", sessions: [{ id: "session-old-remote", title: "Remote Builder" }] }] }]; } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-alias-refresh-")), "rooms.json") });
+  await service.createRoom({ name: "Existing", members: [{ kind: "remote", hostId: "peer", sessionId: "session-old-remote" }] });
+  assert.equal((await service.listRooms())[0].members[0].alias, undefined);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const member = (await service.listRooms())[0].members[0];
+  assert.equal(member.sessionId, "session-old-remote");
+  assert.equal(member.alias, "Remote Builder");
+  assert.equal(member.workspaceTitle, "Release");
+  assert.equal(member.hostName, "studio-mini");
+  assert.equal("capability" in member, false);
+});
+
 test("rooms materialize as visible titled sessions in the Chatrooms workspace", async () => {
   const root = await mkdtemp(join(tmpdir(), "dsh-chat-sessions-"));
   const sessions = new Map();
