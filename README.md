@@ -19,7 +19,10 @@ delivery or network transport.
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
 avatars and keeps membership and Weave configuration in a dedicated settings
-drawer; its composer follows the native session input layout. There is no
+drawer. Local members are selected from the host's live session catalog rather
+than entered as raw ids. Reachable paired Weave hosts contribute their own
+session catalogs, grouped and labeled by host name; Iroh identity and pairing
+remain owned by dsh-weave's Settings page. Its composer follows the native session input layout. There is no
 separate Group Chat view tab. Existing rooms are assigned room sessions on
 startup. When Weave is installed, the same room service can also deliver to
 its explicit remote members.

@@ -55,6 +55,25 @@ test("rooms materialize as visible titled sessions in the Chatrooms workspace", 
   assert.equal((await service.listRooms())[0].sessionId, room.sessionId);
 });
 
+test("session catalogs expose friendly local titles and reachable paired hosts", async () => {
+  const local = { id: "session-local", header: { id: "session-local", createdAt: 10 }, events: [] };
+  const weave = {
+    endpoints() { return [{ peerId: "peer-one", ticket: "peer-ticket" }]; },
+    async send() { return { result: { hostName: "studio-mini", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }] } }; }
+  };
+  const ctx = {
+    dshWeave: weave,
+    get(name) {
+      if (name === "sessions") return { list() { return [local]; } };
+      if (name === "sessionTitle") return { get() { return { title: "Local build" }; } };
+      if (name === "sessionPersistence") return { async list() { return [local.header]; } };
+    }
+  };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-catalog-")), "rooms.json"), hostName: "air" });
+  assert.deepEqual(await service.sessionCatalog(), { hostName: "air", sessions: [{ id: "session-local", title: "Local build", running: true, updatedAt: 10 }] });
+  assert.deepEqual(await service.remoteSessions(), [{ peerId: "peer-one", ticket: "peer-ticket", hostName: "studio-mini", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }] }]);
+});
+
 test("adding a remote room member explicitly trusts its Weave ticket", async () => {
   const trusted = [];
   const ctx = { dshWeave: { trust(ticket) { trusted.push(ticket); }, async ticket() { return "local-ticket"; }, async send() { return { delivered: true }; } } };
