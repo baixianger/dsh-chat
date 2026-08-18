@@ -18,6 +18,17 @@ test("room messages fan out through Bridge and persist", async () => {
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
 });
 
+test("room delivery waits for Bridge to resume a cold session", async () => {
+  let resumed = false;
+  const ctx = { dshBridge: { async deliverExternal() { await new Promise((resolve) => setTimeout(resolve, 5)); resumed = true; }, async status(sessionId) { return { sessionId, state: "offline", live: false }; } } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-cold-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Cold", members: [{ kind: "session", sessionId: "alice" }, { kind: "session", sessionId: "cold" }] });
+  const message = await service.send({ roomId: room.id, author: "alice", text: "wake", mentions: ["cold"] });
+  assert.equal(resumed, true);
+  assert.equal(message.deliveries[0].status, "delivered");
+  assert.equal((await service.listRooms())[0].members.find((member) => member.sessionId === "cold").state, "offline");
+});
+
 test("an agent replies to a human in the room without waking another agent", async () => {
   const calls = [];
   const ctx = { dshBridge: { deliverExternal(...args) { calls.push(args); } } };
@@ -226,7 +237,7 @@ test("legacy room tickets migrate once to stable host ids without trusting them"
   const path = join(await mkdtemp(join(tmpdir(), "dsh-chat-migrate-")), "rooms.json");
   await writeFile(path, JSON.stringify({ version: 1, rooms: [{ id: "legacy", name: "Legacy", members: [{ kind: "weave", sessionId: "remote", ticket: "remote-ticket" }], messages: [], pendingDeliveries: [], hostTicket: "host-ticket", cursor: 0 }] }));
   const service = new DshChatService({ dshWeave: { subscribe() { return () => {}; }, identify(ticket) { return ticket === "host-ticket" ? "host-id" : "remote-id"; } } }, { path });
-  service.attachWeave(); await new Promise((resolve) => setTimeout(resolve, 10));
+  service.attachWeave(); await service.ready;
   const saved = JSON.parse(await readFile(path, "utf8"));
   assert.equal(saved.rooms[0].hostId, "host-id"); assert.equal("hostTicket" in saved.rooms[0], false);
   assert.deepEqual(saved.rooms[0].members[0], { kind: "remote", sessionId: "remote", hostId: "remote-id" });
