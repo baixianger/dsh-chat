@@ -58,6 +58,11 @@ separate `mentions` field. Plain text—including `at`, email addresses, or a
 literal `@alias`—never wakes an agent by itself. `mentions: ["all"]` remains the
 only agent broadcast.
 
+An explicitly mentioned live agent is woken through Bridge. Its injected
+message explains that an ordinary assistant response remains private to that
+session and that replying to the room requires `chat_send`; the hint includes
+the room name and sender alias so an agent can answer without handling ids.
+
 Same-host membership is immediate. Cross-host membership requires an explicit
 trusted peer and creates a capability-bearing room link, rather than copying
 room state from a text message. A remote room view cursor-long-polls its host;

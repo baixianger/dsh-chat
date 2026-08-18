@@ -12,6 +12,8 @@ test("room messages fan out through Bridge and persist", async () => {
   const room = await service.createRoom({ name: "Build", members: [{ kind: "session", sessionId: "alice" }, { kind: "session", sessionId: "bob" }] });
   const message = await service.send({ roomId: room.id, author: "alice", text: "ship it", mentions: ["all"] });
   assert.equal(calls.length, 1); assert.equal(calls[0][1], "bob"); assert.match(calls[0][2], /ship it/);
+  assert.match(calls[0][2], /normal assistant reply stays only in this session/);
+  assert.match(calls[0][2], /call chat_send/);
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
 });
 
