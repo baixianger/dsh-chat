@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.18` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.19` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
@@ -52,9 +52,11 @@ dsh plugin --profile web add dsh-chat@next
 Agents receive `chat_create`, `chat_join`, `chat_invite`, and `chat_send`. This
 makes plain requests such as “create group chat release” or “join group chat
 release” actionable without asking the operator for a session id. A send with
-no mentions is a room-only public event; `mentions: ["session-id"]` is the
-machine-readable form of `@session-id`, and `mentions: ["all"]` is the only
-agent broadcast. The web view extracts these mentions from composed text.
+no mentions is a room-only public event. The UI displays and inserts a session's
+human-readable alias, while a deliberate selection records its stable id in the
+separate `mentions` field. Plain text—including `at`, email addresses, or a
+literal `@alias`—never wakes an agent by itself. `mentions: ["all"]` remains the
+only agent broadcast.
 
 Same-host membership is immediate. Cross-host membership requires an explicit
 trusted peer and creates a capability-bearing room link, rather than copying

@@ -48,3 +48,10 @@ test("room controls follow the DSH Settings token contract", async () => {
   assert.match(source, /color-mix\(in srgb/);
   assert.doesNotMatch(source, /zGbnIq_|qSYn7G_|At1oFq_/);
 });
+
+test("composer delivers only structured mentions selected from the member list", async () => {
+  const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
+  assert.match(source, /const mentions = \[\.\.\.new Set\(selected\)\]/);
+  assert.doesNotMatch(source, /draft\.matchAll/);
+  assert.doesNotMatch(source, /lowerDraft\.includes/);
+});

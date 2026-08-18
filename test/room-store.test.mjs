@@ -15,6 +15,24 @@ test("room messages fan out through Bridge and persist", async () => {
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
 });
 
+test("session aliases are presentation metadata while delivery uses stable ids", async () => {
+  const calls = [];
+  const ctx = { dshBridge: { deliverExternal(...args) { calls.push(args); } } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-alias-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Design", members: [
+    { kind: "session", sessionId: "session-a1", alias: "Planner" },
+    { kind: "session", sessionId: "session-b2", alias: "Builder" }
+  ] });
+  const quiet = await service.send({ roomId: room.id, author: "session-a1", authorAlias: "Planner", text: "The literal @Builder remains human-readable." });
+  assert.deepEqual(quiet.mentions, []);
+  assert.equal(calls.length, 0);
+  const targeted = await service.send({ roomId: room.id, author: "session-a1", authorAlias: "Planner", text: "@Builder please review", mentions: ["Builder"] });
+  assert.equal(targeted.author, "session-a1");
+  assert.equal(targeted.authorAlias, "Planner");
+  assert.deepEqual(targeted.mentions, ["session-b2"]);
+  assert.equal(calls[0][1], "session-b2");
+});
+
 test("rooms materialize as visible titled sessions in the Chatrooms workspace", async () => {
   const root = await mkdtemp(join(tmpdir(), "dsh-chat-sessions-"));
   const sessions = new Map();
@@ -96,9 +114,11 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const host = new DshChatService({ dshWeave: makeWeave("host"), dshBridge: { deliverExternal() {} } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "host.json") });
   const guest = new DshChatService({ dshWeave: makeWeave("guest"), dshBridge: { deliverExternal(...args) { deliveries.push(args); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "guest.json") });
   host.attachWeave(); guest.attachWeave();
-  const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session" }] });
-  await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session" });
+  const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session", alias: "Host Planner" }] });
+  await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session", alias: "Guest Builder", hostName: "studio-mini" });
   const link = await guest.resolveRoom(room.id); assert.equal(link.hostId, "host"); assert.equal(link.linkedSessionId, "guest-session");
+  assert.equal(link.members.find((member) => member.sessionId === "guest-session").alias, "Guest Builder");
+  assert.equal("capability" in link.members.find((member) => member.sessionId === "guest-session"), false);
   const capability = (await host.resolveRoom(room.id)).members.find((member) => member.kind === "remote").capability;
   delete guest.state.rooms[0].linkedSessionId; delete guest.state.rooms[0].capability;
   const existing = await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session" });
@@ -116,8 +136,10 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const forged = { to: "dsh-chat/2", peerId: "host", text: JSON.stringify({ protocol: "dsh-chat/2", kind: "room.delivery", roomId: room.id, roomName: room.name, recipient: "guest-session", capability: "wrong", message: { id: "forged", author: "attacker", text: "inject" } }) };
   await assert.rejects(async () => { for (const listener of listeners.guest) await listener(forged); }, /capability denied/);
   assert.equal(deliveries.length, 1);
-  await guest.send({ roomId: room.id, author: "guest-session", text: "acknowledged" });
-  assert.equal((await host.messages(room.id)).at(-1).text, "acknowledged");
+  await guest.send({ roomId: room.id, author: "guest-session", authorAlias: "Spoofed name", text: "acknowledged" });
+  const acknowledged = (await host.messages(room.id)).at(-1);
+  assert.equal(acknowledged.text, "acknowledged");
+  assert.equal(acknowledged.authorAlias, "Guest Builder");
 });
 
 test("failed remote mentions stay durable until a later acknowledgement", async () => {
