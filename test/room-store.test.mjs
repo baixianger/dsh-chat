@@ -99,6 +99,11 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session" }] });
   await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session" });
   const link = await guest.resolveRoom(room.id); assert.equal(link.hostId, "host"); assert.equal(link.linkedSessionId, "guest-session");
+  const capability = (await host.resolveRoom(room.id)).members.find((member) => member.kind === "remote").capability;
+  delete guest.state.rooms[0].linkedSessionId; delete guest.state.rooms[0].capability;
+  const existing = await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session" });
+  assert.equal(existing.capability, capability);
+  const repaired = await guest.resolveRoom(room.id); assert.equal(repaired.linkedSessionId, "guest-session"); assert.equal(repaired.capability, capability);
   await host.send({ roomId: room.id, author: "host-session", text: "visible to humans" });
   assert.equal((await guest.messages(room.id))[0].text, "visible to humans");
   assert.equal(deliveries.length, 0);
