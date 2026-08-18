@@ -9,9 +9,10 @@ export declare class DshChatService {
   constructor(ctx: unknown, config?: { path?: string });
   subscribe(listener: (event: unknown) => void): () => void;
   listRooms(): Promise<unknown[]>;
-  messages(roomId: string, limit?: number): Promise<DshChatMessage[]>;
+  messages(roomId: string, limit?: number, waitMs?: number): Promise<DshChatMessage[]>;
   createRoom(request: { name: string; members?: DshChatMember[] }): Promise<unknown>;
   addMember(roomId: string, member: DshChatMember): Promise<DshChatMember>;
   send(request: { roomId: string; author: string; text: string }): Promise<DshChatMessage>;
+  retryPendingDeliveries(): Promise<void>;
 }
 export declare function apply(ctx: unknown, config?: { path?: string }): void;

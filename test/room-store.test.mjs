@@ -56,8 +56,35 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   await host.send({ roomId: room.id, author: "host-session", text: "visible to humans" });
   assert.equal((await guest.messages(room.id))[0].text, "visible to humans");
   assert.equal(deliveries.length, 0);
+  const longRead = guest.messages(room.id, 100, 1_000);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  await host.send({ roomId: room.id, author: "host-session", text: "appears through cursor long-poll" });
+  assert.equal((await longRead)[0].text, "appears through cursor long-poll");
   await host.send({ roomId: room.id, author: "host-session", text: "please inspect", mentions: ["guest-session"] });
   assert.equal(deliveries.length, 1); assert.equal(deliveries[0][1], "guest-session");
   await guest.send({ roomId: room.id, author: "guest-session", text: "acknowledged" });
   assert.equal((await host.messages(room.id)).at(-1).text, "acknowledged");
+});
+
+test("failed remote mentions stay durable until a later acknowledgement", async () => {
+  let online = false;
+  const weave = {
+    async trust() {}, async ticket() { return "host-ticket"; },
+    async send(frame) {
+      if (JSON.parse(frame.text).kind === "room.invite" || online) return { delivered: true };
+      throw new Error("peer offline");
+    }
+  };
+  const path = join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "host.json");
+  const host = new DshChatService({ dshWeave: weave }, { path });
+  const room = await host.createRoom({ name: "Durable", members: [{ kind: "session", sessionId: "host" }] });
+  await host.addMember(room.id, { kind: "weave", sessionId: "guest", ticket: "guest-ticket" });
+  const message = await host.send({ roomId: room.id, author: "host", text: "retry me", mentions: ["guest"] });
+  assert.equal(message.deliveries[0].status, "failed");
+  const first = JSON.parse(await (await import("node:fs/promises")).readFile(path, "utf8"));
+  assert.equal(first.rooms[0].pendingDeliveries.length, 1);
+  online = true;
+  await host.retryPendingDeliveries();
+  const second = JSON.parse(await (await import("node:fs/promises")).readFile(path, "utf8"));
+  assert.equal(second.rooms[0].pendingDeliveries.length, 0);
 });

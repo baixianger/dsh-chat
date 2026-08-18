@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.8` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
+`0.1.0-rc.11` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
 local session members, reads the room timeline, and sends through Bridge. The
 panel talks only to the local DSH host through a trusted RPC channel; it does
 not expose a standalone public chat server. When Weave is installed, the same
@@ -42,12 +42,15 @@ dsh plugin --profile web add dsh-chat@next
 Agents receive `chat_create`, `chat_join`, `chat_invite`, and `chat_send`. This
 makes plain requests such as “create group chat release” or “join group chat
 release” actionable without asking the operator for a session id. A send with
-no mentions broadcasts; `mentions: ["session-id"]` is the machine-readable
-form of `@session-id`, and `mentions: ["all"]` broadcasts explicitly.
+no mentions is a room-only public event; `mentions: ["session-id"]` is the
+machine-readable form of `@session-id`, and `mentions: ["all"]` is the only
+agent broadcast. The web view extracts these mentions from composed text.
 
 Same-host membership is immediate. Cross-host membership requires an explicit
 trusted peer and creates a capability-bearing room link, rather than copying
-room state from a text message.
+room state from a text message. A remote room view cursor-long-polls its host;
+the host retains an unacknowledged targeted delivery for seven days and retries
+it without turning normal public room traffic into agent follow-ups.
 
 ## Roadmap
 
