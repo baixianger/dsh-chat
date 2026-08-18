@@ -155,7 +155,8 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
     }
   });
   const host = new DshChatService({ dshWeave: makeWeave("host"), dshBridge: { deliverExternal() {} } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "host.json") });
-  const guest = new DshChatService({ dshWeave: makeWeave("guest"), dshBridge: { deliverExternal(...args) { deliveries.push(args); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "guest.json") });
+  const guestPath = join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "guest.json");
+  const guest = new DshChatService({ dshWeave: makeWeave("guest"), dshBridge: { deliverExternal(...args) { deliveries.push(args); } } }, { path: guestPath });
   host.attachWeave(); guest.attachWeave();
   const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session", alias: "Host Planner" }] });
   await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session", alias: "Guest Builder", hostName: "studio-mini" });
@@ -173,7 +174,14 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const longRead = guest.messages(room.id, 100, 1_000);
   await new Promise((resolve) => setTimeout(resolve, 10));
   await host.send({ roomId: room.id, author: "host-session", text: "appears through cursor long-poll" });
-  assert.equal((await longRead)[0].text, "appears through cursor long-poll");
+  const afterLongRead = await longRead;
+  assert.deepEqual(afterLongRead.map((message) => message.text), ["visible to humans", "appears through cursor long-poll"]);
+  const reloadedGuest = new DshChatService({ dshWeave: makeWeave("guest") }, { path: guestPath });
+  reloadedGuest.attachWeave();
+  assert.deepEqual((await reloadedGuest.messages(room.id)).map((message) => message.text), ["visible to humans", "appears through cursor long-poll"]);
+  reloadedGuest.state.rooms[0].messages = [];
+  reloadedGuest.state.rooms[0].cursor = 2;
+  assert.deepEqual((await reloadedGuest.messages(room.id)).map((message) => message.text), ["visible to humans", "appears through cursor long-poll"]);
   await host.send({ roomId: room.id, author: "host-session", text: "please inspect", mentions: ["guest-session"] });
   assert.equal(deliveries.length, 1); assert.equal(deliveries[0][1], "guest-session");
   const forged = { to: "dsh-chat/2", peerId: "host", text: JSON.stringify({ protocol: "dsh-chat/2", kind: "room.delivery", roomId: room.id, roomName: room.name, recipient: "guest-session", capability: "wrong", message: { id: "forged", author: "attacker", text: "inject" } }) };

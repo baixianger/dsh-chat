@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.23` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.25` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
@@ -75,7 +75,10 @@ it without turning normal public room traffic into agent follow-ups.
 The room session stores only a durable `chat/room-link` marker and a closed,
 step-free initialization turn so DSH treats it as a visible session. Room
 messages remain in the authoritative room store; linked machines keep the
-host id, room capability, and cursor rather than copying the timeline into their session logs.
+host id, room capability, cursor, and a bounded read-only timeline cache rather
+than copying room messages into their DSH session logs. The cache lets linked
+hosts retain visible history across page and process restarts while the room
+owner remains authoritative.
 
 ## Roadmap
 

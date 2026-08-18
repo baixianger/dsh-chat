@@ -49,6 +49,13 @@ test("room controls follow the DSH Settings token contract", async () => {
   assert.doesNotMatch(source, /zGbnIq_|qSYn7G_|At1oFq_/);
 });
 
+test("remote rooms render cached history before entering long polling", async () => {
+  const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
+  assert.match(source, /let firstRead = true/);
+  assert.match(source, /room\.remote && !firstRead \? 25_000 : 0/);
+  assert.match(source, /firstRead = false/);
+});
+
 test("composer delivers only structured mentions selected from the member list", async () => {
   const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
   assert.match(source, /const mentions = \[\.\.\.new Set\(selected\)\]/);
