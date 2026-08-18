@@ -55,32 +55,20 @@ test("rooms materialize as visible titled sessions in the Chatrooms workspace", 
   assert.equal((await service.listRooms())[0].sessionId, room.sessionId);
 });
 
-test("session catalogs expose friendly local titles and reachable paired hosts", async () => {
-  const local = { id: "session-local", header: { id: "session-local", createdAt: 10 }, events: [] };
-  const weave = {
-    endpoints() { return [{ peerId: "peer-one", ticket: "peer-ticket" }]; },
-    async send() { return { result: { hostName: "studio-mini", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }] } }; }
-  };
-  const ctx = {
-    dshWeave: weave,
-    get(name) {
-      if (name === "sessions") return { list() { return [local]; } };
-      if (name === "sessionTitle") return { get() { return { title: "Local build" }; } };
-      if (name === "sessionPersistence") return { async list() { return [local.header]; } };
-    }
-  };
-  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-catalog-")), "rooms.json"), hostName: "air" });
-  assert.deepEqual(await service.sessionCatalog(), { hostName: "air", sessions: [{ id: "session-local", title: "Local build", running: true, updatedAt: 10 }] });
-  assert.deepEqual(await service.remoteSessions(), [{ peerId: "peer-one", ticket: "peer-ticket", hostName: "studio-mini", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }] }]);
+test("remote session selection consumes Weave's workspace catalog", async () => {
+  const weave = { async remoteSessions() { return [{ hostId: "peer-one", hostName: "studio-mini", workspaces: [{ id: "workspace-1", title: "Release", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }, { id: "dsh-chat-room-v3-hidden", title: "Room", running: false, updatedAt: 1 }] }] }]; } };
+  const service = new DshChatService({ dshWeave: weave }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-catalog-")), "rooms.json") });
+  assert.deepEqual(await service.remoteSessions(), [{ hostId: "peer-one", hostName: "studio-mini", workspaces: [{ id: "workspace-1", title: "Release", sessions: [{ id: "session-remote", title: "Remote build", running: true, updatedAt: 20 }] }] }]);
 });
 
-test("adding a remote room member explicitly trusts its Weave ticket", async () => {
-  const trusted = [];
-  const ctx = { dshWeave: { trust(ticket) { trusted.push(ticket); }, async ticket() { return "local-ticket"; }, async send() { return { delivered: true }; } } };
+test("adding a remote room member sends by host id without changing Weave trust", async () => {
+  const sent = [];
+  const ctx = { dshWeave: { async sendTo(frame) { sent.push(frame); return { delivered: true }; } } };
   const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "rooms.json") });
   const room = await service.createRoom({ name: "Remote" });
-  await service.addMember(room.id, { kind: "weave", sessionId: "remote-session", ticket: "ticket-data" });
-  assert.deepEqual(trusted, ["ticket-data"]);
+  const member = await service.addMember(room.id, { kind: "remote", hostId: "host-two", sessionId: "remote-session" });
+  assert.equal(member.hostId, "host-two"); assert.equal("ticket" in member, false);
+  assert.equal(sent[0].hostId, "host-two"); assert.equal(JSON.parse(sent[0].text).kind, "room.invite");
 });
 
 test("room references resolve by name and mentions target only the named members", async () => {
@@ -98,10 +86,9 @@ test("room references resolve by name and mentions target only the named members
 test("authoritative host exposes cursor reads and only delivers explicit remote mentions", async () => {
   const listeners = { host: new Set(), guest: new Set() }; const deliveries = [];
   const makeWeave = (side) => ({
-    async trust() {}, async ticket() { return `${side}-ticket`; },
     subscribe(listener) { listeners[side].add(listener); return () => listeners[side].delete(listener); },
-    async send(frame) {
-      const target = frame.ticket === "host-ticket" ? "host" : "guest"; let result;
+    async sendTo(frame) {
+      const target = frame.hostId; let result;
       for (const listener of listeners[target]) { const outcome = await listener({ ...frame, peerId: side, receivedAt: Date.now() }); if (outcome?.result !== undefined) result = outcome.result; }
       return { delivered: true, result };
     }
@@ -110,8 +97,8 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const guest = new DshChatService({ dshWeave: makeWeave("guest"), dshBridge: { deliverExternal(...args) { deliveries.push(args); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "guest.json") });
   host.attachWeave(); guest.attachWeave();
   const room = await host.createRoom({ name: "Owner", members: [{ kind: "session", sessionId: "host-session" }] });
-  await host.addMember(room.id, { kind: "weave", sessionId: "guest-session", ticket: "guest-ticket" });
-  const link = await guest.resolveRoom(room.id); assert.equal(link.hostTicket, "host-ticket");
+  await host.addMember(room.id, { kind: "remote", hostId: "guest", sessionId: "guest-session" });
+  const link = await guest.resolveRoom(room.id); assert.equal(link.hostId, "host"); assert.equal(link.linkedSessionId, "guest-session");
   await host.send({ roomId: room.id, author: "host-session", text: "visible to humans" });
   assert.equal((await guest.messages(room.id))[0].text, "visible to humans");
   assert.equal(deliveries.length, 0);
@@ -121,6 +108,9 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   assert.equal((await longRead)[0].text, "appears through cursor long-poll");
   await host.send({ roomId: room.id, author: "host-session", text: "please inspect", mentions: ["guest-session"] });
   assert.equal(deliveries.length, 1); assert.equal(deliveries[0][1], "guest-session");
+  const forged = { to: "dsh-chat/2", peerId: "host", text: JSON.stringify({ protocol: "dsh-chat/2", kind: "room.delivery", roomId: room.id, roomName: room.name, recipient: "guest-session", capability: "wrong", message: { id: "forged", author: "attacker", text: "inject" } }) };
+  await assert.rejects(async () => { for (const listener of listeners.guest) await listener(forged); }, /capability denied/);
+  assert.equal(deliveries.length, 1);
   await guest.send({ roomId: room.id, author: "guest-session", text: "acknowledged" });
   assert.equal((await host.messages(room.id)).at(-1).text, "acknowledged");
 });
@@ -128,8 +118,7 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
 test("failed remote mentions stay durable until a later acknowledgement", async () => {
   let online = false;
   const weave = {
-    async trust() {}, async ticket() { return "host-ticket"; },
-    async send(frame) {
+    async sendTo(frame) {
       if (JSON.parse(frame.text).kind === "room.invite" || online) return { delivered: true };
       throw new Error("peer offline");
     }
@@ -137,7 +126,7 @@ test("failed remote mentions stay durable until a later acknowledgement", async 
   const path = join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "host.json");
   const host = new DshChatService({ dshWeave: weave }, { path });
   const room = await host.createRoom({ name: "Durable", members: [{ kind: "session", sessionId: "host" }] });
-  await host.addMember(room.id, { kind: "weave", sessionId: "guest", ticket: "guest-ticket" });
+  await host.addMember(room.id, { kind: "remote", hostId: "guest-host", sessionId: "guest" });
   const message = await host.send({ roomId: room.id, author: "host", text: "retry me", mentions: ["guest"] });
   assert.equal(message.deliveries[0].status, "failed");
   const first = JSON.parse(await (await import("node:fs/promises")).readFile(path, "utf8"));
@@ -146,4 +135,15 @@ test("failed remote mentions stay durable until a later acknowledgement", async 
   await host.retryPendingDeliveries();
   const second = JSON.parse(await (await import("node:fs/promises")).readFile(path, "utf8"));
   assert.equal(second.rooms[0].pendingDeliveries.length, 0);
+});
+
+test("legacy room tickets migrate once to stable host ids without trusting them", async () => {
+  const { writeFile, readFile } = await import("node:fs/promises");
+  const path = join(await mkdtemp(join(tmpdir(), "dsh-chat-migrate-")), "rooms.json");
+  await writeFile(path, JSON.stringify({ version: 1, rooms: [{ id: "legacy", name: "Legacy", members: [{ kind: "weave", sessionId: "remote", ticket: "remote-ticket" }], messages: [], pendingDeliveries: [], hostTicket: "host-ticket", cursor: 0 }] }));
+  const service = new DshChatService({ dshWeave: { subscribe() { return () => {}; }, identify(ticket) { return ticket === "host-ticket" ? "host-id" : "remote-id"; } } }, { path });
+  service.attachWeave(); await new Promise((resolve) => setTimeout(resolve, 10));
+  const saved = JSON.parse(await readFile(path, "utf8"));
+  assert.equal(saved.rooms[0].hostId, "host-id"); assert.equal("hostTicket" in saved.rooms[0], false);
+  assert.deepEqual(saved.rooms[0].members[0], { kind: "remote", sessionId: "remote", hostId: "remote-id" });
 });

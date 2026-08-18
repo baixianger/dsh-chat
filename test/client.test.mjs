@@ -12,6 +12,7 @@ test("client renders rooms in native Chat and takes over only their composer", a
   } finally {
     delete globalThis.window;
   }
+  assert.equal(plugin.inject.includes("workspaces"), true);
   const registrations = [];
   let definition;
   plugin.apply({

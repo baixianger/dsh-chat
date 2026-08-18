@@ -14,15 +14,16 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.14` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.15` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
 avatars and keeps membership and Weave configuration in a dedicated settings
 drawer. Local members are selected from the host's live session catalog rather
 than entered as raw ids. Reachable paired Weave hosts contribute their own
-session catalogs, grouped and labeled by host name; Iroh identity and pairing
-remain owned by dsh-weave's Settings page. Its composer follows the native session input layout. There is no
+workspace-grouped session catalogs, labeled by host name; archived sessions
+are excluded. Iroh identity and pairing remain owned by dsh-weave's Settings
+page. Its composer follows the native session input layout. There is no
 separate Group Chat view tab. Existing rooms are assigned room sessions on
 startup. When Weave is installed, the same room service can also deliver to
 its explicit remote members.
@@ -34,8 +35,8 @@ dsh plugin --profile web add dsh-chat@next
 ## Product principles
 
 - A local chat and a remote handoff look like one continuous conversation.
-- A room has one authoritative host. Remote nodes store a room link (ticket
-  and cursor), not a second room or message-history replica.
+- A room has one authoritative host. Remote nodes store a room link (host id,
+  capability, and cursor), not an endpoint ticket, second room, or message-history replica.
 - Public messages without `@` belong only to the room view; `@session-id`
   directs delivery and `@all` is the explicit agent broadcast.
 - Without Weave, a room can contain local sessions only. When Weave is
@@ -62,7 +63,7 @@ it without turning normal public room traffic into agent follow-ups.
 The room session stores only a durable `chat/room-link` marker and a closed,
 step-free initialization turn so DSH treats it as a visible session. Room
 messages remain in the authoritative room store; linked machines keep the
-ticket and cursor rather than copying the timeline into their session logs.
+host id, room capability, and cursor rather than copying the timeline into their session logs.
 
 ## Roadmap
 
