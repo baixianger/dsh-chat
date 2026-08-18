@@ -14,7 +14,21 @@ test("room messages fan out through Bridge and persist", async () => {
   assert.equal(calls.length, 1); assert.equal(calls[0][1], "bob"); assert.match(calls[0][2], /ship it/);
   assert.match(calls[0][2], /normal assistant reply stays only in this session/);
   assert.match(calls[0][2], /call chat_send/);
+  assert.match(calls[0][2], /mentions \["alice"\]/);
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
+});
+
+test("an agent replies to a human in the room without waking another agent", async () => {
+  const calls = [];
+  const ctx = { dshBridge: { deliverExternal(...args) { calls.push(args); } } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-human-reply-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Support", members: [{ kind: "session", sessionId: "agent", alias: "Helper" }] });
+  await service.send({ roomId: room.id, author: "human-browser", authorAlias: "You", text: "Can you help?", mentions: ["Helper"] });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], "agent");
+  assert.match(calls[0][2], /sent by a human room participant/);
+  assert.match(calls[0][2], /omit mentions/);
+  assert.doesNotMatch(calls[0][2], /mentions \["You"\]/);
 });
 
 test("session aliases are presentation metadata while delivery uses stable ids", async () => {

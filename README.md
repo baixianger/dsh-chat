@@ -14,7 +14,7 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.21` represents every room as a dedicated DSH session inside a
+`0.1.0-rc.23` represents every room as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
@@ -62,6 +62,9 @@ An explicitly mentioned live agent is woken through Bridge. Its injected
 message explains that an ordinary assistant response remains private to that
 session and that replying to the room requires `chat_send`; the hint includes
 the room name and sender alias so an agent can answer without handling ids.
+Agent senders receive a structured reply mention. Human senders instead receive
+a room-only reply with no mentions, so the response is visible without waking
+another agent.
 
 Same-host membership is immediate. Cross-host membership requires an explicit
 trusted peer and creates a capability-bearing room link, rather than copying
