@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.17",
+  "version": "0.1.0-rc.18",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
@@ -60,14 +60,16 @@
     "access": "public",
     "tag": "next"
   },
-  "dependencies": {
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.7",
+    "dsh-weave": ">=0.1.0-rc.10"
+  },
+  "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.7",
     "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.7"
-  },
-  "peerDependencies": {
-    "react": "^18.2.0",
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.7",
-    "dsh-weave": ">=0.1.0-rc.10"
   }
 }
