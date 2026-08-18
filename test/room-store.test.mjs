@@ -15,6 +15,46 @@ test("room messages fan out through Bridge and persist", async () => {
   assert.equal(message.deliveries[0].status, "delivered"); assert.equal((await service.messages(room.id))[0].text, "ship it");
 });
 
+test("rooms materialize as visible titled sessions in the Chatrooms workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "dsh-chat-sessions-"));
+  const sessions = new Map();
+  const attached = [];
+  const detached = [];
+  const renamed = [];
+  const flushed = [];
+  const workspace = { async attachSession(id) { attached.push(id); }, async detachSession(id) { detached.push(id); } };
+  const ctx = {
+    get(name) {
+      if (name === "sessions") return {
+        get(id) { return sessions.get(id); },
+        create(id, options) {
+          const events = [...(options.seed ?? [])];
+          const session = { id, header: options.meta, events, append(type, data) { const event = { type, data, seq: events.length }; events.push(event); return event; } };
+          sessions.set(id, session); return session;
+        },
+        async flush(session) { flushed.push(session.id); }
+      };
+      if (name === "workspaceRegistry") return { async create(path, title) { assert.equal(path, join(root, "Chatrooms")); assert.equal(title, "Chatrooms"); return workspace; } };
+      if (name === "sessionTitle") return { rename(session, title) { renamed.push([session.id, title]); } };
+    }
+  };
+  const service = new DshChatService(ctx, { path: join(root, "rooms.json") });
+  const room = await service.createRoom({ name: "Release", members: [{ kind: "session", sessionId: "alice" }] });
+  assert.match(room.sessionId, /^dsh-chat-room-v3-/);
+  const session = sessions.get(room.sessionId);
+  assert.equal(session.header.cwd, join(root, "Chatrooms"));
+  assert.deepEqual(session.events.map((event) => event.type), ["turn/start", "chat/room-link", "turn/end"]);
+  assert.deepEqual(session.events[0].data, { turn: 1 });
+  assert.equal(session.events[1].ignorable, true);
+  assert.deepEqual(session.events[2].data, { turn: 1, reason: { kind: "completed" } });
+  assert.equal(session.events[1].data.roomId, room.id);
+  assert.deepEqual(renamed, [[room.sessionId, "Release"]]);
+  assert.deepEqual(attached, [room.sessionId]);
+  assert.deepEqual(flushed, [room.sessionId]);
+  assert.deepEqual(detached, []);
+  assert.equal((await service.listRooms())[0].sessionId, room.sessionId);
+});
+
 test("adding a remote room member explicitly trusts its Weave ticket", async () => {
   const trusted = [];
   const ctx = { dshWeave: { trust(ticket) { trusted.push(ticket); }, async ticket() { return "local-ticket"; }, async send() { return { delivered: true }; } } };

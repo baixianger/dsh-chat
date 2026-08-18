@@ -3,7 +3,7 @@
 > Web group chat for local DSH sessions and trusted remote nodes.
 
 **DSH Chat** is the user-facing layer of the DSH family. It owns group rooms,
-members, the message timeline, and the DSH Web panel. It does not own local
+members, the message timeline, and room sessions in the DSH Web client. It does not own local
 delivery or network transport.
 
 | Package | Role |
@@ -14,11 +14,13 @@ delivery or network transport.
 
 ## Status
 
-`0.1.0-rc.12` adds agent-facing room tools alongside the DSH Web `Group Chat` tab. It creates durable rooms, adds
-local session members, reads the room timeline, and sends through Bridge. The
-panel talks only to the local DSH host through a trusted RPC channel; it does
-not expose a standalone public chat server. When Weave is installed, the same
-room service can also deliver to its explicit remote members.
+`0.1.0-rc.13` represents every room as a dedicated DSH session inside a
+`Chatrooms` workspace. Opening that session uses the native Chat view: a
+conversation node renders the authoritative room timeline and a
+selector-routed composer sends room messages. There is no separate Group Chat
+view tab. Existing rooms are assigned room sessions on startup. When Weave is
+installed, the same room service can also deliver to its explicit remote
+members.
 
 ```bash
 dsh plugin --profile web add dsh-chat@next
@@ -52,9 +54,14 @@ room state from a text message. A remote room view cursor-long-polls its host;
 the host retains an unacknowledged targeted delivery for seven days and retries
 it without turning normal public room traffic into agent follow-ups.
 
+The room session stores only a durable `chat/room-link` marker and a closed,
+step-free initialization turn so DSH treats it as a visible session. Room
+messages remain in the authoritative room store; linked machines keep the
+ticket and cursor rather than copying the timeline into their session logs.
+
 ## Roadmap
 
-- [x] `conversation.view` Web panel for local rooms
+- [x] Native Chat room sessions with a composer takeover
 - [ ] Node and task handoff timeline
 - [ ] Remote approval and result cards
 - [ ] Session export, replay, and audit view
