@@ -56,6 +56,13 @@ test("remote rooms render cached history before entering long polling", async ()
   assert.match(source, /firstRead = false/);
 });
 
+test("room chat hides ordinary agent nodes injected into its container session", async () => {
+  const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
+  assert.match(source, /data-dsh-chat-room-timeline/);
+  assert.match(source, /\[data-slot="conversation\.chat\.node"\]/);
+  assert.match(source, /> \*:not\(:has\(\[data-dsh-chat-room-timeline\]\)\) \{ display: none !important; \}/);
+});
+
 test("composer delivers only structured mentions selected from the member list", async () => {
   const source = await readFile(new URL("../lib/client.js", import.meta.url), "utf8");
   assert.match(source, /const mentions = \[\.\.\.new Set\(selected\)\]/);

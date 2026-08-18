@@ -191,6 +191,12 @@ test("authoritative host exposes cursor reads and only delivers explicit remote 
   const acknowledged = (await host.messages(room.id)).at(-1);
   assert.equal(acknowledged.text, "acknowledged");
   assert.equal(acknowledged.authorAlias, "Guest Builder");
+  await guest.send({ roomId: room.id, author: `dsh-chat-room-v3-${room.id}`, authorAlias: "You", text: "sent from the remote room UI" });
+  const remoteHuman = (await host.messages(room.id)).at(-1);
+  assert.equal(remoteHuman.text, "sent from the remote room UI");
+  assert.equal(remoteHuman.authorAlias, "You");
+  assert.match(remoteHuman.author, /^dsh-chat-human:guest:/);
+  await assert.rejects(() => guest.send({ roomId: room.id, author: "host-session", authorAlias: "Host Planner", text: "spoof" }), /room post author denied/);
 });
 
 test("failed remote mentions stay durable until a later acknowledgement", async () => {
