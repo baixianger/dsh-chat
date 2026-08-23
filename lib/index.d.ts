@@ -14,6 +14,7 @@ export declare class DshChatService {
   remoteSessions(): Promise<Array<{ hostId: string; hostName: string; workspaces: Array<{ id: string; title: string; sessions: Array<{ id: string; title: string; running: boolean; updatedAt: number }> }> }>>;
   createRoom(request: { name: string; members?: DshChatMember[] }): Promise<unknown>;
   addMember(roomId: string, member: DshChatMember): Promise<DshChatMember>;
+  removeMember(roomId: string, member: DshChatMember): Promise<DshChatMember | null>;
   send(request: { roomId: string; author: string; authorAlias?: string; text: string; mentions?: string[] }): Promise<DshChatMessage>;
   retryPendingDeliveries(): Promise<void>;
 }

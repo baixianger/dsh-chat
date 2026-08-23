@@ -242,3 +242,45 @@ test("legacy room tickets migrate once to stable host ids without trusting them"
   assert.equal(saved.rooms[0].hostId, "host-id"); assert.equal("hostTicket" in saved.rooms[0], false);
   assert.deepEqual(saved.rooms[0].members[0], { kind: "remote", sessionId: "remote", hostId: "remote-id" });
 });
+
+test("removes a local member durably and drops its pending deliveries", async () => {
+  const events = [];
+  const ctx = { dshBridge: { deliverExternal() {} } };
+  const path = join(await mkdtemp(join(tmpdir(), "dsh-chat-remove-")), "rooms.json");
+  const service = new DshChatService(ctx, { path });
+  service.subscribe((event) => events.push(event));
+  await service.createRoom({ name: "Crew", members: [{ kind: "session", sessionId: "alice" }, { kind: "session", sessionId: "bob" }] });
+  const stateRoom = service.state.rooms[0];
+  stateRoom.pendingDeliveries = [{ id: "m1", recipient: "bob", message: {}, createdAt: Date.now(), expiresAt: Date.now() + 1000, attempts: 0 }];
+  const removed = await service.removeMember(stateRoom.id, { kind: "session", sessionId: "bob" });
+  assert.equal(removed.sessionId, "bob");
+  assert.deepEqual(stateRoom.members.map((member) => member.sessionId), ["alice"]);
+  assert.deepEqual(stateRoom.pendingDeliveries, []);
+  assert.equal(events.at(-1).kind, "member-removed");
+  assert.equal(events.at(-1).member.sessionId, "bob");
+  const reloaded = new DshChatService(ctx, { path });
+  const listed = await reloaded.listRooms();
+  assert.deepEqual(listed[0].members.map((member) => member.sessionId), ["alice"]);
+});
+
+test("removing an absent member resolves without writing", async () => {
+  const ctx = { dshBridge: { deliverExternal() {} } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-remove-absent-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Crew", members: [{ kind: "session", sessionId: "alice" }] });
+  assert.equal(await service.removeMember(room.id, { kind: "session", sessionId: "nobody" }), null);
+  assert.deepEqual(room.members.map((member) => member.sessionId), ["alice"]);
+});
+
+test("removes a remote member by host id and guards linked rooms", async () => {
+  const ctx = { dshWeave: { async sendTo(frame) { return { delivered: true }; } } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-remove-remote-")), "rooms.json") });
+  await service.createRoom({ name: "Bridge", members: [{ kind: "remote", hostId: "host-two", sessionId: "remote-session" }] });
+  const stateRoom = service.state.rooms[0];
+  const removed = await service.removeMember(stateRoom.id, { kind: "remote", hostId: "host-two", sessionId: "remote-session" });
+  assert.equal(removed.sessionId, "remote-session");
+  assert.equal(stateRoom.members.length, 0);
+  assert.equal(await service.removeMember(stateRoom.id, { kind: "remote", hostId: "host-two", sessionId: "remote-session" }), null);
+  await assert.rejects(() => service.removeMember(stateRoom.id, { kind: "nope", sessionId: "x" }), /member.kind must be session or remote/);
+  stateRoom.hostId = "authoritative-host";
+  await assert.rejects(() => service.removeMember(stateRoom.id, { kind: "session", sessionId: "alice" }), /only the room's host can remove members/);
+});

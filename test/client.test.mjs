@@ -70,4 +70,5 @@ test("composer delivers only structured mentions selected from the member list",
   assert.doesNotMatch(source, /lowerDraft\.includes/);
   assert.match(source, /Mention \$\{label\}, \$\{stateLabel\(state\)\}/);
   assert.match(source, /background: stateColor\(state\)/);
+  assert.match(source, /runtimeState\(member\) !== "archived"/);
 });

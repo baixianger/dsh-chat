@@ -22,7 +22,11 @@ avatars and keeps membership and Weave configuration in a dedicated settings
 drawer. Local members are selected from the host's live session catalog rather
 than entered as raw ids. Reachable paired Weave hosts contribute their own
 workspace-grouped session catalogs, labeled by host name; archived sessions
-are excluded. Iroh identity and pairing remain owned by dsh-weave's Settings
+are excluded. The same drawer can remove a member from the room: removal is
+durable, drops any pending targeted deliveries, and is restricted to the room's
+authoritative host. Archived members remain listed (for removal) but are
+excluded from the composer's @-mention candidates: their agent no longer
+receives room delivery. Iroh identity and pairing remain owned by dsh-weave's Settings
 page. Its composer follows the native session input layout. There is no
 separate Group Chat view tab. Existing rooms are assigned room sessions on
 startup. When Weave is installed, the same room service can also deliver to
