@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -56,7 +56,7 @@ test("session aliases are presentation metadata while delivery uses stable ids",
   const targeted = await service.send({ roomId: room.id, author: "session-a1", authorAlias: "Planner", text: "@Builder please review", mentions: ["Builder"] });
   assert.equal(targeted.author, "session-a1");
   assert.equal(targeted.authorAlias, "Planner");
-  assert.deepEqual(targeted.mentions, ["session-b2"]);
+  assert.deepEqual(targeted.mentions, ["session:session-b2"]);
   assert.equal(calls[0][1], "session-b2");
 });
 
@@ -75,7 +75,7 @@ test("legacy members expose a live session title without changing their stable i
 });
 
 test("Weave backfills aliases for existing remote members without blocking room reads", async () => {
-  const service = new DshChatService({ dshWeave: { async remoteSessions() { return [{ hostId: "peer", hostName: "studio-mini", workspaces: [{ id: "work", title: "Release", sessions: [{ id: "session-old-remote", title: "Remote Builder" }] }] }]; } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-alias-refresh-")), "rooms.json") });
+  const service = new DshChatService({ dshWeave: { async sendTo() { return { delivered: true }; }, async remoteSessions() { return [{ hostId: "peer", hostName: "studio-mini", workspaces: [{ id: "work", title: "Release", sessions: [{ id: "session-old-remote", title: "Remote Builder" }] }] }]; } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-alias-refresh-")), "rooms.json") });
   await service.createRoom({ name: "Existing", members: [{ kind: "remote", hostId: "peer", sessionId: "session-old-remote" }] });
   assert.equal((await service.listRooms())[0].members[0].alias, undefined);
   await new Promise((resolve) => setTimeout(resolve, 10));
@@ -150,7 +150,7 @@ test("room references resolve by name and mentions target only the named members
   const room = await service.createRoom({ name: "Release", members: [{ kind: "session", sessionId: "alice" }, { kind: "session", sessionId: "bob" }, { kind: "session", sessionId: "carol" }] });
   assert.equal((await service.resolveRoom("Release")).id, room.id);
   const message = await service.send({ roomId: room.id, author: "alice", text: "@bob please review", mentions: ["bob"] });
-  assert.deepEqual(message.mentions, ["bob"]);
+  assert.deepEqual(message.mentions, ["session:bob"]);
   assert.equal(calls.length, 1);
   assert.equal(calls[0][1], "bob");
 });
@@ -230,6 +230,42 @@ test("failed remote mentions stay durable until a later acknowledgement", async 
   await host.retryPendingDeliveries();
   const second = JSON.parse(await (await import("node:fs/promises")).readFile(path, "utf8"));
   assert.equal(second.rooms[0].pendingDeliveries.length, 0);
+});
+
+test("remote mentions use host-qualified identities when session ids collide", async () => {
+  const sent = [];
+  const weave = { async sendTo(frame) { sent.push(frame); return { delivered: true }; } };
+  const service = new DshChatService({ dshWeave: weave }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-collision-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Collision", members: [{ kind: "session", sessionId: "local" }] });
+  await service.addMember(room.id, { kind: "remote", hostId: "host-one", sessionId: "shared", alias: "One" });
+  await service.addMember(room.id, { kind: "remote", hostId: "host-two", sessionId: "shared", alias: "Two" });
+  await assert.rejects(() => service.send({ roomId: room.id, author: "local", text: "ambiguous", mentions: ["shared"] }), /ambiguous/);
+  const message = await service.send({ roomId: room.id, author: "local", text: "only two", mentions: ["remote:host-two:shared"] });
+  assert.deepEqual(message.mentions, ["remote:host-two:shared"]);
+  const deliveries = sent.filter((frame) => JSON.parse(frame.text).kind === "room.delivery");
+  assert.deepEqual(deliveries.map((frame) => frame.hostId), ["host-two"]);
+});
+
+test("a local author does not suppress a same-id remote member", async () => {
+  const sent = [];
+  const service = new DshChatService({ dshWeave: { async sendTo(frame) { sent.push(frame); return { delivered: true }; } }, dshBridge: { async deliverExternal() {} } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-local-collision-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Same ID", members: [{ kind: "session", sessionId: "shared" }] });
+  await service.addMember(room.id, { kind: "remote", hostId: "host-two", sessionId: "shared" });
+  await service.send({ roomId: room.id, author: "shared", text: "remote still receives", mentions: ["all"] });
+  assert.deepEqual(sent.filter((frame) => JSON.parse(frame.text).kind === "room.delivery").map((frame) => frame.hostId), ["host-two"]);
+});
+
+test("room state is private and close removes subscriptions and timers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "dsh-chat-private-"));
+  const path = join(root, "nested", "rooms.json");
+  let unsubscribed = false;
+  const service = new DshChatService({ dshWeave: { subscribe() { return () => { unsubscribed = true; }; } } }, { path });
+  service.attachWeave();
+  await service.createRoom({ name: "Private" });
+  assert.equal((await stat(path)).mode & 0o777, 0o600);
+  assert.equal((await stat(join(root, "nested"))).mode & 0o777, 0o700);
+  await service.close();
+  assert.equal(unsubscribed, true);
 });
 
 test("legacy room tickets migrate once to stable host ids without trusting them", async () => {
