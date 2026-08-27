@@ -1,5 +1,7 @@
 # DSH Chat
 
+[English](README.md) | [简体中文](README.zh.md)
+
 > Web group chat for local DSH sessions and trusted remote nodes.
 
 **DSH Chat** is the user-facing layer of the DSH family. It owns group rooms,
@@ -12,9 +14,28 @@ delivery or network transport.
 | `dsh-weave` | Trusted cross-machine transport over Iroh |
 | `dsh-chat` | The human conversation and task-control surface |
 
-## Status
+## What it gives you
 
-`0.1.0-rc.27` represents every room as a dedicated DSH session inside a
+- Native DSH room sessions inside a dedicated `Chatrooms` workspace.
+- Explicit `@` delivery to selected agents and an intentional `@all` broadcast.
+- Human-readable member aliases backed by stable session identifiers.
+- Durable room membership, authoritative timelines, and bounded remote caches.
+- Optional cross-Host rooms through explicitly trusted `dsh-weave` peers.
+
+## Quick start
+
+```bash
+dsh plugin --profile web add dsh-chat@next
+dsh web
+```
+
+Ask an agent to create or join a room, or open the generated room session in
+the `Chatrooms` workspace. Local delivery is provided by `dsh-bridge`; remote
+members require paired Hosts in **Settings → Weave**.
+
+## Current design
+
+Every room is represented as a dedicated DSH session inside a
 `Chatrooms` workspace. Opening that session uses the native Chat view: a
 conversation node renders the authoritative room timeline and a
 selector-routed composer sends room messages. The room timeline uses member
@@ -33,10 +54,6 @@ startup. When Weave is installed, the same room service can also deliver to
 its explicit remote members. The Host → Workspace → Session picker follows
 the same token-based field, select, focus, and disabled-state contract as DSH
 Settings without depending on Settings' private CSS-module class names.
-
-```bash
-dsh plugin --profile web add dsh-chat@next
-```
 
 ## Product principles
 

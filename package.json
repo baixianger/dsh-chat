@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.32",
+  "version": "0.1.0-rc.33",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
@@ -32,6 +32,7 @@
     "lib/",
     "cordis.patch.yml",
     "README.md",
+    "README.zh.md",
     "RELEASES.md",
     "LICENSE"
   ],
