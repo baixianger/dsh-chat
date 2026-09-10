@@ -14,11 +14,13 @@ test("client renders rooms in native Chat and takes over only their composer", a
     delete globalThis.window;
   }
   assert.equal(plugin.inject.includes("workspaces"), true);
+  assert.equal(plugin.inject.includes("uiConversation"), true);
+  assert.equal(plugin.inject.includes("conversationEvents"), false);
   const registrations = [];
   let definition;
   plugin.apply({
     connection: { rpc: { async call() { return { ok: true, value: [] }; } } },
-    conversationEvents: { register(value) { definition = value; } },
+    uiConversation: { events: { register(value) { definition = value; } } },
     slots: {
       inject(_name, mount) { mount(); },
       register(options, component) { registrations.push({ options, component }); }
