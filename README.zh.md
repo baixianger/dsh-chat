@@ -1,98 +1,93 @@
+<div align="center">
+
+<img src="docs/assets/hero.svg" alt="DSH Chat" width="100%" />
+
 # DSH Chat
 
-[English](README.md) | [简体中文](README.zh.md)
+[English](README.md) · [简体中文](README.zh.md)
 
-> 面向本地 DSH 会话与可信远程节点的 Web 群聊。
+[![npm](https://img.shields.io/npm/v/dsh-chat?style=flat-square&color=374151)](https://www.npmjs.com/package/dsh-chat) [![License: MIT](https://img.shields.io/badge/License-MIT-374151?style=flat-square)](LICENSE) [![DSH plugin](https://img.shields.io/badge/DSH-plugin-374151?style=flat-square)](https://github.com/topics/dsh-plugin)
 
-**DSH Chat** 是 DSH 通信系列中面向用户的一层。它在 DSH Web 客户端中管理群聊房间、
-成员、消息时间线与房间会话，但不自己实现本地投递或网络传输。
+</div>
 
-| 插件 | 职责 |
+让人与 DSH Agent 在同一个房间协作。共享清晰的消息时间线，明确选择需要联系的 Agent，也可以加入受信任的远程主机成员。
+
+## 每条消息都有明确去向
+
+| 在房间中操作 | 实际行为 |
 | --- | --- |
-| `dsh-bridge` | 本地会话事件与同进程投递 |
-| `dsh-weave` | 基于 Iroh 的可信跨机传输 |
-| `dsh-chat` | 面向用户的对话与任务控制界面 |
+| 发送普通消息 | 只显示在共享时间线中。 |
+| 在提及选择器中选择 Agent | 只向选中的 Agent 投递。 |
+| 选择 `@all` | 向房间内所有符合条件的 Agent 广播。 |
+| 添加远程成员 | 使用已明确配对的 Weave 主机。 |
 
-## 核心能力
-
-- 在专用的 `Chatrooms` 工作区中使用 DSH 原生房间会话。
-- 通过显式 `@` 提及向指定 Agent 投递，仅 `@all` 会广播。
-- 界面显示人类可读的成员别名，投递使用稳定 session id。
-- 持久化房间成员、权威时间线与有界的远程缓存。
-- 可通过已显式信任的 `dsh-weave` 对端把远程会话加入同一房间。
+直接输入邮箱或字面上的 `@别名` 不会唤醒 Agent；投递以单独的结构化提及选择为准。
 
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add dsh-chat@next
+dsh plugin --profile web add dsh-bridge@latest dsh-chat@latest
 dsh web
 ```
 
-可以让 Agent 创建或加入房间，也可以直接在 `Chatrooms` 工作区中打开已生成的房间会话。
-本地投递由 `dsh-bridge` 完成；要添加远程成员，需要先在 **设置 → Weave** 中配对 Host。
+1. 请 Agent 创建房间，例如：“创建一个叫‘发布协作’的群聊。”
+2. 在 **Chatrooms** 工作区打开房间。
+3. 从成员抽屉按 **主机 → 工作区 → 会话** 选择成员。
+4. 输入消息，需要 Agent 接收时再明确选择提及对象。
 
-## 界面与房间模型
+使用远程成员时，在两台主机安装 `dsh-weave@latest`，并在 **设置 → Weave** 完成配对。本地房间无需 Weave。
 
-每个房间都是 `Chatrooms` 工作区中一个专用 DSH 会话。打开后继续使用原生 Chat 视图：
+## 为日常协作设计
 
-- conversation node 渲染权威的房间时间线；
-- 经 selector 路由的 composer 发送房间消息；
-- 成员头像显示在时间线中；
-- 成员与 Weave 配置放在独立设置抽屉中。
-
-本地成员从 Host 实时会话目录中选择，无需手动输入 id。已连通的 Weave Host
-会按工作区提供自己的会话目录，并显示 Host 名称；已归档会话不会出现在新成员候选中。
-
-从房间移除成员是持久化操作，会丢弃该成员待投递的目标消息，且只能由房间权威 Host 执行。
-已归档成员仍会显示以便移除，但不会出现在 `@` 提及候选中，也不再接收房间投递。
+- 在正常 DSH 会话视图内提供专用聊天输入框和权威时间线。
+- 成员别名、头像、时间戳，以及明确的成员管理入口。
+- 中英文、宿主主题颜色和支持键盘操作的成员抽屉。
+- 持久保存房间会话与成员关系，重启后仍可见。
+- 远程房间主机暂时不可达时，保留有界的只读历史缓存。
 
 ## Agent 工具
 
-| 工具 | 作用 |
+| 工具 | 用途 |
 | --- | --- |
-| `chat_create` | 创建群聊房间 |
-| `chat_join` | 加入已有房间 |
-| `chat_invite` | 邀请本地或可信远程成员 |
-| `chat_send` | 向房间发送公开或定向消息 |
+| `chat_create` | 创建命名房间。 |
+| `chat_join` | 加入房间。 |
+| `chat_invite` | 邀请会话加入房间。 |
+| `chat_send` | 发送房间消息，并明确选择提及对象。 |
 
-因此，用户可以直接说“创建一个 release 群聊”或“加入 release 群聊”，
-不需要先找到 session id。
+Agent 的普通回复留在自己的会话中。回复房间需要调用 `chat_send`，收到的消息会附带这条说明。
 
-## `@` 提及规则
+## 各部分如何协作
 
-- 没有提及的消息只属于房间公开时间线，不会唤醒 Agent。
-- 在 UI 中明确选择成员时，显示别名，但在独立 `mentions` 字段中记录稳定 id。
-- 普通文本中的 `at`、邮箱地址或字面量 `@alias` 都不会自动唤醒 Agent。
-- `mentions: ["all"]` 是唯一的 Agent 广播方式。
+```mermaid
+flowchart LR
+  Human[你] --> Chat[DSH Chat 房间]
+  Chat --> Bridge[Bridge · 本地 Agent]
+  Chat --> Weave[Weave · 受信任主机]
+  Weave --> Remote[远程房间成员]
+```
 
-被显式提及的 Agent 会通过 Bridge 唤醒。注入消息会告诉 Agent：普通 assistant 回复只留在自己会话中，
-要在房间中可见地回复，必须调用 `chat_send`。
+每个房间只有一个权威主机，负责成员和消息；其他主机保存房间权限、游标和有界缓存。已归档的成员仍可供移除，但不再接收 Agent 投递。
 
-## 跨 Host 房间
+取消操作会结束等待并停止向后续成员发送；已提交状态和已送达消息保留。用户主动取消的远程发送会移出重试队列；其他因网络中断而待投递的定向消息最多保留七天。
 
-同 Host 成员关系立即生效。跨 Host 成员关系需要已显式信任的 peer，并创建带 capability 的
-room link，不会从一条普通文本消息复制房间状态。
+## 配置
 
-远程房间视图通过 cursor 长轮询权威 Host。Host 会将未确认的定向投递保留 7 天并重试，
-但普通房间公开消息不会因此变成 Agent follow-up。
+| 字段 | 默认值 |
+| --- | --- |
+| `path` | `$DSH_HOME/dsh-chat/rooms.json` |
+| `workspacePath` | `$DSH_HOME/dsh-chat/Chatrooms` |
 
-房间会话在 DSH 日志中只保存持久化的 `chat/room-link` 标记和关闭的初始化回合。
-房间消息仍在权威 room store 中；链接节点只保存 Host id、房间 capability、cursor 和有界只读时间线缓存。
+`DSH_HOME` 默认是 `~/.dsh`。房间状态使用仅所有者可访问的文件权限；创建可见房间会话需要宿主的 session-persistence 服务。
 
-## 产品原则
+## 当前范围
 
-- 本地聊天与远程交付在用户眼中是一段连续对话。
-- 一个房间只有一个权威 Host；远程节点保存 room link，不保存第二份房间。
-- 远程操作明确显示目标节点、请求能力与批准状态。
-- 断网会明确可见，不用隐式重试伪造“已完成”。
-- 凭据与私有工作区文件留在各自所属的 DSH 节点。
+已支持房间和明确投递。丰富的任务交接、远程审批/结果卡片、会话导出与回放仍属后续工作。[Bridge](https://github.com/baixianger/dsh-bridge) 负责本地投递，[Weave](https://github.com/baixianger/dsh-weave) 负责跨主机传输。
 
-## 开发
+## 开发与反馈
 
 ```bash
+npm ci
 npm run check
 ```
 
-## 许可证
-
-MIT © Xiang Bai
+[提交问题](https://github.com/baixianger/dsh-chat/issues) · [版本记录](RELEASES.md) · [MIT 许可证](LICENSE)

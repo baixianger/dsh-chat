@@ -1,5 +1,11 @@
 # Releases
 
+## 0.1.0-rc.36 · 2026-09-14
+
+Restore startup without optional Weave; persist room sessions across cold restarts; propagate cancellation across tools, routes and remote waits; refine bilingual room/member UI.
+
+Source: [`v0.1.0-rc.36`](https://github.com/baixianger/dsh-chat/tree/v0.1.0-rc.36). Distribution: `latest`.
+
 Release tags point at the exact source commit used to build the package. The bookkeeping commit that fills in a source SHA intentionally comes after that tag.
 
 | Version | Tag | Source commit | Summary |

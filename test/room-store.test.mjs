@@ -320,3 +320,99 @@ test("removes a remote member by host id and guards linked rooms", async () => {
   stateRoom.hostId = "authoritative-host";
   await assert.rejects(() => service.removeMember(stateRoom.id, { kind: "session", sessionId: "alice" }), /only the room's host can remove members/);
 });
+
+test("a duplicate room name is refused so by-name rooms stay unambiguous", async () => {
+  const ctx = { get(name) { return name === "dshBridge" ? { deliverExternal() {} } : undefined; } };
+  const service = new DshChatService(ctx, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-")), "rooms.json") });
+  const room = await service.createRoom({ name: "Release" });
+  await assert.rejects(() => service.createRoom({ name: "Release" }), /already exists/);
+  assert.equal((await service.listRooms()).length, 1);
+  assert.equal((await service.resolveRoom("Release")).id, room.id);
+});
+
+test("cancelled room operations stop before mutation and abort member status probes", async (t) => {
+  const entered = Promise.withResolvers();
+  let observed;
+  const service = new DshChatService({ dshBridge: { status(_id, signal) { observed = signal; entered.resolve(); return new Promise(() => {}); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-abort-")), "rooms.json") });
+  t.after(() => service.close());
+  const signal = AbortSignal.abort(new Error("cancelled"));
+  await assert.rejects(service.createRoom({ name: "never" }, { signal }), /cancelled/);
+  assert.deepEqual(await service.listRooms(), []);
+  await service.createRoom({ name: "test", members: [{ kind: "session", sessionId: "peer", alias: "Peer" }] });
+  const controller = new AbortController();
+  const listing = service.listRooms({ signal: controller.signal });
+  await entered.promise;
+  controller.abort(new Error("stop probe"));
+  await assert.rejects(listing, /stop probe/);
+  assert.equal(observed.aborted, true);
+});
+
+test("cancelling fan-out retains completed delivery and does not contact the next member", async (t) => {
+  const controller = new AbortController(); const calls = [];
+  const service = new DshChatService({ dshBridge: { async deliverExternal(_from, to, _text, options) { calls.push(to); assert.ok(options.signal); controller.abort(new Error("stop fanout")); } } }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-fanout-")), "rooms.json") });
+  t.after(() => service.close());
+  const room = await service.createRoom({ name: "test", members: ["one", "two"].map((sessionId) => ({ kind: "session", sessionId })) });
+  await assert.rejects(service.send({ roomId: room.id, author: "human", text: "test", mentions: ["all"] }, { signal: controller.signal }), /stop fanout/);
+  assert.deepEqual(calls, ["one"]);
+  const saved = await service.messages(room.id);
+  assert.deepEqual(saved[0].deliveries, [{ member: "one", kind: "session", status: "delivered" }]);
+});
+
+test("a cancelled remote mention is removed from the durable retry queue", async (t) => {
+  const entered = Promise.withResolvers(); let deliveries = 0;
+  const weave = { sendTo(request) { if (JSON.parse(request.text).kind === "room.invite") return Promise.resolve({}); deliveries++; entered.resolve(request.signal); return new Promise(() => {}); } };
+  const service = new DshChatService({ dshWeave: weave }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-remote-abort-")), "rooms.json") });
+  t.after(() => service.close());
+  const room = await service.createRoom({ name: "test", members: [{ kind: "remote", hostId: "host", sessionId: "peer" }] });
+  const controller = new AbortController();
+  const sending = service.send({ roomId: room.id, author: "human", text: "test", mentions: ["all"] }, { signal: controller.signal });
+  const forwarded = await entered.promise;
+  controller.abort(new Error("stop send"));
+  await assert.rejects(sending, /stop send/);
+  assert.equal(forwarded.aborted, true);
+  await service.retryPendingDeliveries();
+  assert.equal(deliveries, 1);
+  assert.equal(service.state.rooms[0].pendingDeliveries.length, 0);
+});
+
+test("closing Chat cancels a remote reader and removes its message subscription", async () => {
+  let listener;
+  const weave = { subscribe(callback) { listener = callback; return () => {}; }, sendTo: async () => ({}) };
+  const service = new DshChatService({ dshWeave: weave }, { path: join(await mkdtemp(join(tmpdir(), "dsh-chat-wait-abort-")), "rooms.json") });
+  service.attachWeave();
+  const room = await service.createRoom({ name: "test", members: [{ kind: "remote", hostId: "host", sessionId: "peer" }] });
+  const waiting = listener({ to: "dsh-chat/2", peerId: "host", text: JSON.stringify({ protocol: "dsh-chat/2", kind: "room.read", roomId: room.id, capability: room.members[0].capability, waitMs: 25_000 }) });
+  const rejected = assert.rejects(waiting, { name: "AbortError" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(service.listeners.size, 1);
+  await service.close();
+  await rejected;
+  assert.equal(service.listeners.size, 0);
+});
+
+test("room session seeds are flushed before attaching and survive a cold restart", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "dsh-room-persist-"));
+  const stored = new Map(); const live = new Map(); const writes = [];
+  const ctx = {
+    sessions: { get: (id) => live.get(id), create(id, { seed, meta }) { const session = { id, header: { id, meta }, snapshotEvents: () => seed }; live.set(id, session); return session; } },
+    sessionTitle: { rename() {} },
+    sessionPersistence: {
+      stat: async (id) => stored.has(id) ? { header: { id } } : undefined,
+      create: async (header) => ({
+        append: async (events) => { stored.set(header.id, structuredClone(events)); writes.push("append"); },
+        flush: async () => { writes.push("flush"); },
+        close: async () => { writes.push("close"); }
+      })
+    },
+    workspaceRegistry: { create: async () => ({ attachSession(id) { assert.ok(stored.has(id)); writes.push("attach"); } }) }
+  };
+  const first = new DshChatService(ctx, { path: join(directory, "rooms.json") });
+  const room = await first.createRoom({ name: "Persisted" });
+  await first.close();
+  assert.deepEqual(writes, ["append", "flush", "close", "attach"]);
+  assert.equal(stored.get(room.sessionId).find(e => e.type === "chat/room-link").data.roomId, room.id);
+  live.clear(); writes.length = 0;
+  const second = new DshChatService(ctx, { path: join(directory, "rooms.json") });
+  await second.ensureRoomSessions(); await second.close();
+  assert.deepEqual(writes, ["attach"], "existing durable history is reused, never recreated or overwritten");
+});

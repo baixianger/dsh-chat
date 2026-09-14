@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat",
-  "version": "0.1.0-rc.35",
+  "version": "0.1.0-rc.36",
   "description": "Web group chat for local and woven DeepSeek Harness sessions.",
   "type": "module",
   "main": "./lib/index.js",
@@ -34,7 +34,8 @@
     "README.md",
     "README.zh.md",
     "RELEASES.md",
-    "LICENSE"
+    "LICENSE",
+    "docs/assets/"
   ],
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/room-store.js && npm test && npm pack --dry-run",
@@ -46,7 +47,8 @@
     "chat",
     "agent",
     "conversation",
-    "mesh"
+    "mesh",
+    "dsh-plugin"
   ],
   "author": "Xiang Bai",
   "license": "MIT",
@@ -60,7 +62,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "next"
+    "tag": "latest"
   },
   "peerDependencies": {
     "react": "^18.2.0",

@@ -1,119 +1,93 @@
+<div align="center">
+
+<img src="docs/assets/hero.svg" alt="DSH Chat" width="100%" />
+
 # DSH Chat
 
-[English](README.md) | [简体中文](README.zh.md)
+[English](README.md) · [简体中文](README.zh.md)
 
-> Web group chat for local DSH sessions and trusted remote nodes.
+[![npm](https://img.shields.io/npm/v/dsh-chat?style=flat-square&color=374151)](https://www.npmjs.com/package/dsh-chat) [![License: MIT](https://img.shields.io/badge/License-MIT-374151?style=flat-square)](LICENSE) [![DSH plugin](https://img.shields.io/badge/DSH-plugin-374151?style=flat-square)](https://github.com/topics/dsh-plugin)
 
-**DSH Chat** is the user-facing layer of the DSH family. It owns group rooms,
-members, the message timeline, and room sessions in the DSH Web client. It does not own local
-delivery or network transport.
+</div>
 
-| Package | Role |
+Bring people and DSH agents into shared rooms. Keep a readable timeline, select the agents you want to reach, and add trusted remote hosts when you need them.
+
+## A room with clear delivery
+
+| In the room | What happens |
 | --- | --- |
-| `dsh-bridge` | Local session events and same-process delivery |
-| `dsh-weave` | Trusted cross-machine transport over Iroh |
-| `dsh-chat` | The human conversation and task-control surface |
+| Send a normal message | It appears in the shared timeline. |
+| Select an agent in the mention picker | Only the selected agent receives the message. |
+| Select `@all` | All eligible room agents receive it. |
+| Add a remote member | The room uses an explicitly paired Weave host. |
 
-## What it gives you
-
-- Native DSH room sessions inside a dedicated `Chatrooms` workspace.
-- Explicit `@` delivery to selected agents and an intentional `@all` broadcast.
-- Human-readable member aliases backed by stable session identifiers.
-- Durable room membership, authoritative timelines, and bounded remote caches.
-- Optional cross-Host rooms through explicitly trusted `dsh-weave` peers.
+Typing an email address or a literal `@alias` does not wake an agent. Delivery uses the separate, structured mention selection.
 
 ## Quick start
 
 ```bash
-dsh plugin --profile web add dsh-chat@next
+dsh plugin --profile web add dsh-bridge@latest dsh-chat@latest
 dsh web
 ```
 
-Ask an agent to create or join a room, or open the generated room session in
-the `Chatrooms` workspace. Local delivery is provided by `dsh-bridge`; remote
-members require paired Hosts in **Settings → Weave**.
+1. Ask an agent to create a chat room, for example: “Create a group chat called Release.”
+2. Open the room in the **Chatrooms** workspace.
+3. Use the member drawer to choose a **Host → Workspace → Session**.
+4. Write a message and select mentions when an agent should receive it.
 
-## Current design
+For remote members, install `dsh-weave@latest` on both hosts and pair them in **Settings → Weave**. Local rooms work without Weave.
 
-Every room is represented as a dedicated DSH session inside a
-`Chatrooms` workspace. Opening that session uses the native Chat view: a
-conversation node renders the authoritative room timeline and a
-selector-routed composer sends room messages. The room timeline uses member
-avatars and keeps membership and Weave configuration in a dedicated settings
-drawer. Local members are selected from the host's live session catalog rather
-than entered as raw ids. Reachable paired Weave hosts contribute their own
-workspace-grouped session catalogs, labeled by host name; archived sessions
-are excluded. The same drawer can remove a member from the room: removal is
-durable, drops any pending targeted deliveries, and is restricted to the room's
-authoritative host. Archived members remain listed (for removal) but are
-excluded from the composer's @-mention candidates: their agent no longer
-receives room delivery. Iroh identity and pairing remain owned by dsh-weave's Settings
-page. Its composer follows the native session input layout. There is no
-separate Group Chat view tab. Existing rooms are assigned room sessions on
-startup. When Weave is installed, the same room service can also deliver to
-its explicit remote members. The Host → Workspace → Session picker follows
-the same token-based field, select, focus, and disabled-state contract as DSH
-Settings without depending on Settings' private CSS-module class names.
+## Designed for everyday conversations
 
-## Product principles
+- A dedicated room composer and authoritative timeline inside the normal DSH session view.
+- Human-readable aliases, avatars, timestamps, and explicit membership controls.
+- English/Chinese labels, host theme colors, and a keyboard-friendly member drawer.
+- Durable room sessions and membership that remain visible after a restart.
+- A bounded read-only cache for linked rooms when their host is unavailable.
 
-- A local chat and a remote handoff look like one continuous conversation.
-- A room has one authoritative host. Remote nodes store a room link (host id,
-  capability, and cursor), not an endpoint ticket, second room, or message-history replica.
-- Public messages without `@` belong only to the room view; `@session-id`
-  directs delivery and `@all` is the explicit agent broadcast.
-- Without Weave, a room can contain local sessions only. When Weave is
-  installed, the same room can include explicitly approved remote nodes.
-- Every remote action exposes its target node, requested capability, and approval state.
-- Network loss is visible; no hidden retries that make work appear completed.
-- Credentials and private workspace files stay with their owning DSH node.
+## Agent tools
 
-## Agent commands
+| Tool | Purpose |
+| --- | --- |
+| `chat_create` | Create a named room. |
+| `chat_join` | Join a room. |
+| `chat_invite` | Invite a session to the room. |
+| `chat_send` | Send a room message with explicit mentions. |
 
-Agents receive `chat_create`, `chat_join`, `chat_invite`, and `chat_send`. This
-makes plain requests such as “create group chat release” or “join group chat
-release” actionable without asking the operator for a session id. A send with
-no mentions is a room-only public event. The UI displays and inserts a session's
-human-readable alias, while a deliberate selection records its stable id in the
-separate `mentions` field. Plain text—including `at`, email addresses, or a
-literal `@alias`—never wakes an agent by itself. `mentions: ["all"]` remains the
-only agent broadcast.
+An agent's ordinary reply remains in its own session. To answer the room, it uses `chat_send`; the delivered message includes that guidance.
 
-An explicitly mentioned live agent is woken through Bridge. Its injected
-message explains that an ordinary assistant response remains private to that
-session and that replying to the room requires `chat_send`; the hint includes
-the room name and sender alias so an agent can answer without handling ids.
-Agent senders receive a structured reply mention. Human senders instead receive
-a room-only reply with no mentions, so the response is visible without waking
-another agent.
+## How the pieces fit
 
-Same-host membership is immediate. Cross-host membership requires an explicit
-trusted peer and creates a capability-bearing room link, rather than copying
-room state from a text message. A remote room view cursor-long-polls its host;
-the host retains an unacknowledged targeted delivery for seven days and retries
-it without turning normal public room traffic into agent follow-ups.
+```mermaid
+flowchart LR
+  Human[You] --> Chat[DSH Chat room]
+  Chat --> Bridge[Bridge · local agents]
+  Chat --> Weave[Weave · trusted hosts]
+  Weave --> Remote[Remote room members]
+```
 
-The room session stores only a durable `chat/room-link` marker and a closed,
-step-free initialization turn so DSH treats it as a visible session. Room
-messages remain in the authoritative room store; linked machines keep the
-host id, room capability, cursor, and a bounded read-only timeline cache rather
-than copying room messages into their DSH session logs. The cache lets linked
-hosts retain visible history across page and process restarts while the room
-owner remains authoritative.
+Each room has one authoritative host. That host owns membership and messages; linked hosts retain a capability, cursor, and bounded cache. Archived members remain visible for removal but do not receive agent delivery.
 
-## Roadmap
+Cancelled operations stop waiting and stop sending to further recipients. Already committed room state and delivered messages remain. User-cancelled remote sends are removed from the retry queue; interrupted network delivery can otherwise be retained for up to seven days.
 
-- [x] Native Chat room sessions with a composer takeover
-- [ ] Node and task handoff timeline
-- [ ] Remote approval and result cards
-- [ ] Session export, replay, and audit view
+## Configuration
 
-## Development
+| Field | Default |
+| --- | --- |
+| `path` | `$DSH_HOME/dsh-chat/rooms.json` |
+| `workspacePath` | `$DSH_HOME/dsh-chat/Chatrooms` |
+
+`DSH_HOME` defaults to `~/.dsh`. Room state uses owner-only file permissions. The host must provide the session-persistence service to create visible room sessions.
+
+## Current scope
+
+Rooms and explicit delivery are available today. Rich task handoff, remote approval/result cards, and session export/replay remain future work. [Bridge](https://github.com/baixianger/dsh-bridge) owns local delivery; [Weave](https://github.com/baixianger/dsh-weave) owns cross-host transport.
+
+## Development & feedback
 
 ```bash
+npm ci
 npm run check
 ```
 
-## License
-
-MIT © Xiang Bai
+[Report an issue](https://github.com/baixianger/dsh-chat/issues) · [Release notes](RELEASES.md) · [MIT license](LICENSE)
